@@ -7,7 +7,7 @@ env = gym.make('FrozenLake-v0')
 
 lr = .7
 y = .95
-num_episodes = 20000
+num_episodes = 40000
 
 def train_t(Q):
     #Initialize table with all zeros
@@ -136,11 +136,39 @@ def train_q():
             jList.append(j)
             rList.append(rAll)
 
-
     print("Train: Score over time: " +  str(sum(rList)/num_episodes))
-    print("Final Q-Table Values")
-    print(Q)
-    return Q
+    return init
 
 
-Q = train_q()
+def play_q(vs):
+    epsilon = 1.0
+    jList = []
+    rList = []
+
+    with tf.Session() as sess:
+        sess.run(vs)
+        for i in range(num_episodes):
+            s = env.reset()
+            rAll = 0
+            d = False
+            j = 0
+            while j < 99:
+                j+=1
+
+                a,allQ = sess.run([predict,Qout],feed_dict={inputs1:np.identity(16)[s:s+1]})
+
+                s1,r,d,_ = env.step(a[0])
+
+                # _,W1 = sess.run([updateModel,W],feed_dict={inputs1:np.identity(16)[s:s+1],nextQ:targetQ})
+
+                rAll += r
+                s = s1
+
+                if d==True: break
+
+            jList.append(j)
+            rList.append(rAll)
+    print("Train: Score over time: " +  str(sum(rList)/num_episodes))
+
+vs = train_q()
+play_q(vs)
