@@ -16,19 +16,19 @@ sess = tf.Session()
 advantage = tf.placeholder("float", [None, 1])
 state_ = tf.placeholder("float", [None, n_features])
 actions_ = tf.placeholder("float", [None, n_actions])
-l1 = tf.layers.dense(inputs=state_, units=20, activation=tf.nn.relu
+l1 = tf.layers.dense(inputs=state_, units=100, activation=tf.nn.relu
         ,kernel_initializer=tf.random_normal_initializer(0., 0.01)
         ,bias_initializer=tf.constant_initializer(0.1)) 
-l2 = tf.layers.dense(inputs=l1, units=5, activation=tf.nn.relu
+l2 = tf.layers.dense(inputs=l1, units=20, activation=tf.nn.relu
         ,kernel_initializer=tf.random_normal_initializer(0., 0.01)
         ,bias_initializer=tf.constant_initializer(0.1))
 probs = tf.layers.dense(inputs=l2, units=n_actions, activation=tf.nn.softmax)
-prob_diff = tf.log( tf.reduce_sum (tf.multiply(probs, actions_) ) ) 
-loss = -tf.reduce_sum( prob_diff * advantage ) 
+
+loss = -tf.reduce_sum (tf.multiply( tf.log(probs), actions_) ) * advantage
 optim = tf.train.AdamOptimizer(lr).minimize(loss)
 
 critic_ret = tf.placeholder('float', [None, 1])
-critic_l1 = tf.layers.dense(inputs=state_, units=10, activation=tf.nn.relu,
+critic_l1 = tf.layers.dense(inputs=state_, units=20, activation=tf.nn.relu,
                 kernel_initializer=tf.random_normal_initializer(0., 0.01))
 critic_output = tf.layers.dense(inputs=critic_l1, units=1, activation=None) 
 critic_loss = tf.nn.l2_loss(critic_ret - critic_output)
@@ -97,7 +97,8 @@ def train(sess):
         sess.run(critic_optim, feed_dict={critic_ret: disc_rews
             ,state_: states} )
 
-        print("it %d - running reward: %d: " % (i, rr) )
+        if i % 10 == 0:
+            print("it %d - running reward: %d: " % (i, rr) )
 
 sess.run(tf.global_variables_initializer())
 
