@@ -17,7 +17,7 @@ out = tf.layers.dense(inputs=layer4, units=2, activation=None)
 targ_inp = tf.placeholder('float', [None,1])
 act = tf.placeholder('float', [None,2])
 loss = tf.nn.l2_loss(targ_inp - tf.multiply(out,act) )
-optim = tf.train.AdamOptimizer(0.01).minimize(loss)
+optim = tf.train.AdamOptimizer(0.001).minimize(loss)
 
 actions = [0,1]
 
