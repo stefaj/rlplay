@@ -58,7 +58,7 @@ for i in range(0,2000):
         targets=[]
         states=[]
         actions=[]
-        samples = memory.sample(None,64) 
+        samples = memory.sample(None,128) 
         for (s_,a_,r_,sp_,done_,target_) in samples:
             targets.append([target_])
             states.append(s_)
