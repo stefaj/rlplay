@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import gym
+from replay_memory import Memory
 
 epsilon = 0.1
 gamma = 0.9
@@ -24,8 +25,10 @@ actions = [0,1]
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
+memory = Memory(100000)
+
 rr = 0
-for i in range(0,200000):
+for i in range(0,2000):
     obs = env.reset()
     total = 0
     alpha = 0.5*(0.1 + (1.0/((i/100.0)+1.0)))
@@ -42,30 +45,37 @@ for i in range(0,200000):
         obs_new,reward,done,info =  env.step(a)
         total += reward
    
-        o = sess.run(out, feed_dict={state_inp: [obs_new]})
-        best_q  = np.max( o[0] )
-        target = reward + gamma*best_q # for next state !
-        if done:
-            target = reward
-   
         act_vec = np.zeros(2)
         act_vec[a] = 1
-        # print('a',a)
-        sess.run(optim, feed_dict={targ_inp: [[target]], state_inp: [obs], act: [act_vec]})
-        # sess.run(optim, feed_dict={targ_inp: [[targ_inp]], state_inp: [obs], act: [act_vec]})
+
+        o = sess.run(out, feed_dict={state_inp: [obs_new]})
+        best_q  = np.max( o[0] )
+        target = reward + gamma*best_q 
+        if done: target = reward
+
+        memory.append( (obs,act_vec,reward,obs_new,done,target) )   
+
+        targets=[]
+        states=[]
+        actions=[]
+        samples = memory.sample(None,64) 
+        for (s_,a_,r_,sp_,done_,target_) in samples:
+            targets.append([target_])
+            states.append(s_)
+            actions.append(a_)
+
+        sess.run(optim, feed_dict={targ_inp: targets, state_inp: states, act: actions})
     
         obs = obs_new
         if done: break
     rr = 0.99*rr + 0.01*total
-    if i % 10 == 0: print("iteration %d avg rew %d epsilon %f" % (i,rr,epsilon))
+    print("iteration %d avg rew %d epsilon %f" % (i,rr,epsilon))
 
 raw_input("Press any key to play")
 obs = env.reset()
-s = discretize(obs)
 while True:
     env.render()
-    a = np.argmax( [ get(s,ap) for ap in actions ] ) 
+    a = sess.run(out, feed_dict={state_inp: [obs]} )[0]
+    a = np.argmax( a )
     obs,reward,done,info = env.step(a)
-    sp = discretize(obs)
-    s = sp
     if done: break
