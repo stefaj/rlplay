@@ -24,7 +24,8 @@ for i in range(0,num_actions):
     dists.append(tf.layers.dense(inputs=layer2, units=num_atoms, activation=tf.nn.softmax))
 
 m_inp = tf.placeholder('float', [num_actions,None,num_atoms])
-loss = -tf.reduce_sum( m_inp * tf.log(dists) )
+loss = -tf.reduce_sum( m_inp * tf.log(tf.add(dists,1e-6)) )
+
 # loss = tf.nn.softmax_cross_entropy_with_logits(labels=m_inp,logits=dists)
 optim = tf.train.AdamOptimizer(0.001).minimize(loss)
 
