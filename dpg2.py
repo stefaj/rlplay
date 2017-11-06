@@ -7,10 +7,10 @@ num_actions = 2
 num_obs = 4
 gamma = 0.9
 
-state_inp = tf.placeholder('float', [None, num_obs],name='state_inp')
+state_inp = tf.placeholder('float', [None, num_obs])
 policy_l1 = tf.layers.dense(inputs=state_inp, units=50, activation=tf.nn.relu)
 policy_out = tf.layers.dense(inputs=policy_l1, units=num_actions, activation=tf.nn.softmax)
-policy_qhat = tf.placeholder('float',[None, 1],name='policy_qhat')
+policy_qhat = tf.placeholder('float',[None, 1])
 
 act_inp = tf.placeholder('float',shape=[None, num_actions])
 # sel_act = tf.argmax(act_inp, output_type=tf.int32, axis=1)
@@ -19,30 +19,16 @@ act_inp = tf.placeholder('float',shape=[None, num_actions])
 sel_act_probs = tf.add(tf.multiply(act_inp, policy_out),1e-6)
 
 
-critic_actions = tf.placeholder('float', [None, num_actions])
-critic_targ = tf.placeholder('float', [None, 1])
-critic_prestate = tf.layers.dense(inputs=state_inp, units=21, activation=tf.nn.relu)
-critic_params = tf.get_variable('critic_params', [21, 5])
-critic_paramact = tf.matmul(tf.layers.dense(inputs=critic_actions, units=21, activation=tf.nn.relu)
-        , critic_params)
-linear = tf.matmul(critic_prestate, critic_params)
-critic_l1 = tf.layers.dense(inputs=tf.concat([linear, critic_prestate],axis=1), units=10, activation=tf.nn.relu)
-
-# critic_l2 = tf.layers.dense(inputs=state_inp, units=50, activation=tf.nn.relu)
-# critic_l3 = tf.layers.dense(inputs=tf.concat([critic_l2, critic_actions],axis=1), units=20, activation=tf.nn.relu)
-# critic_l4 = tf.layers.dense(inputs=critic_l3, units=5, activation=tf.nn.relu)
-
+critic_l1 = tf.layers.dense(inputs=state_inp, units=50, activation=tf.nn.relu)
 critic_out = tf.layers.dense(inputs=critic_l1, units=1, activation=None)
+critic_targ = tf.placeholder('float', [None, 1])
 critic_loss = tf.nn.l2_loss(critic_targ - critic_out)
-critic_opt = tf.train.AdamOptimizer(0.001).minimize(critic_loss)
+critic_opt = tf.train.AdamOptimizer(0.01).minimize(critic_loss)
 
-policy_crit_grad = tf.placeholder('float', [None, num_actions]) 
 policy_loss = -tf.reduce_mean( tf.multiply(policy_qhat, tf.log(sel_act_probs) ) )
 policy_grads = tf.gradients(policy_loss, tf.trainable_variables())
-# critic_grads = tf.gradients(critic_loss, tf.trainable_variables())
-# deter_grads = tf.multiply(policy_grads, critic_grads)
 policy_opt_ = tf.train.AdamOptimizer(0.01)
-# policy_opt = policy_opt_.minimize(policy_loss)
+policy_opt = policy_opt_.minimize(policy_loss)
 apply_grads = policy_opt_.apply_gradients(grads_and_vars=zip(policy_grads,tf.trainable_variables()))
 
 
@@ -75,8 +61,8 @@ def discount_rewards(rewards):
         rs[i] = g
     return rs
 
-def get_advantage(actions, states,rewards):
-    qs = sess.run(critic_out, feed_dict={state_inp:states, critic_actions:actions })
+def get_advantage(states,rewards):
+    qs = sess.run(critic_out, feed_dict={state_inp:states})
     rs = []
     for (q,r) in zip(qs,rewards): 
         rs.append([r-q[0]])
@@ -89,21 +75,20 @@ for i in range(0,10000):
 
     (states, rewards, actions) = ([],[],[])
     rs = []
+    rewards = get_advantage( [ t[0] for t in transitions ], [ t[2] for t in transitions] )
     for j in range(0,len(transitions)):
         states.append(transitions[j][0])
         act_vec = np.zeros(num_actions)
         act_vec[transitions[j][1]] = 1
         actions.append(act_vec)  
         rs.append(transitions[j][2])
-
-    rewards = get_advantage( actions, states, rs )
     
     # print('states',states)
     # print('actions',actions)
     # print('target',rewards)
     sess.run(apply_grads, feed_dict={state_inp: states, act_inp: actions, policy_qhat:rewards} )
     targ = [ [r] for r in discount_rewards(rs) ]
-    sess.run(critic_opt, feed_dict={state_inp: states, critic_targ:targ, critic_actions:actions} )
+    sess.run(critic_opt, feed_dict={state_inp: states, critic_targ:targ } )
 
     if i % 10 == 0: print("Iteration %d Rolloing Reward: %d" % (i,rr))
 
