@@ -5,7 +5,7 @@ from replay_memory import Memory
 
 epsilon = 0.1
 gamma = 0.9
-num_atoms=11
+num_atoms=51
 
 env = gym.make('CartPole-v0')
 num_actions=2
@@ -27,7 +27,7 @@ m_inp = tf.placeholder('float', [num_actions,None,num_atoms])
 loss = -tf.reduce_sum( m_inp * tf.log(tf.add(dists,1e-6)) )
 
 # loss = tf.nn.softmax_cross_entropy_with_logits(labels=m_inp,logits=dists)
-optim = tf.train.AdamOptimizer(0.001).minimize(loss)
+optim = tf.train.AdamOptimizer(0.0001).minimize(loss)
 
 v_min = 0.0
 v_max = 100.0
@@ -76,13 +76,13 @@ for i in range(0,2000):
             qs = np.multiply(z_concat, np.array(z_hist))
             q_expect = np.sum(qs,axis=1)
             a = np.argmax( q_expect )
-        if epsilon > 0 and rr > 50: epsilon *= 0.9999999
+        if epsilon > 0.01: epsilon *= 0.999999
 
         obs_new,reward,done,info =  env.step(a)
         total += reward
    
-        ps = np.vstack(sess.run( dists, feed_dict={state_inp: [obs_new]} ))
-        memory.append( (obs,a,reward,obs_new,done,ps) )   
+        # ps = np.vstack(sess.run( dists, feed_dict={state_inp: [obs_new]} ))
+        memory.append( (obs,a,reward,obs_new,done,()) )   
 
         targets=[]
         states=[]
