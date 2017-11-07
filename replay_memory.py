@@ -6,7 +6,7 @@ class Memory:
         self.size = size
         self.buffer = deque(maxlen=size)
 
-    def sample(self,probabilities, batch_size=32):
+    def sample(self,probabilities=None, batch_size=32):
         l = list(self.buffer)
         # print(l)
         # print(batch_size)
@@ -15,6 +15,16 @@ class Memory:
         for i in indices:
             selected.append( l[i] )
         return selected
+
+    def sample_unpack(self, probabilities=None, batch_size=32):
+        samples = self.sample(probabilities, batch_size)
+        len_cats = len(samples[0])
+        categories = []
+        for col in range(0,len_cats): categories.append([])
+        for col in range(0,len_cats):
+            for s in samples:
+                categories[col].append(s[col])
+        return categories
 
     def append(self,item):
         self.buffer.append(item)
