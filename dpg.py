@@ -22,10 +22,13 @@ policy_vars = tf.trainable_variables()
 policy_var_len = len(policy_vars)
 
 critic_targ = tf.placeholder('float', [None, 1], name='critic_qtarget')
-critic_paramact = tf.layers.dense(inputs=act_inp, units=num_obs, activation=tf.nn.relu)
-critic_mul = tf.layers.dense(inputs=critic_paramact*state_inp, units=100, activation=tf.nn.relu)
-critic_l1 = tf.layers.dense(inputs=critic_mul, units=50, activation=tf.nn.relu)
-critic_out = tf.layers.dense(inputs=critic_l1, units=1, activation=None)
+
+critic_params1 = tf.get_variable('critic_params1', [num_obs, 20])
+critic_mul1 = tf.layers.dense(inputs=tf.matmul(state_inp, critic_params1), units=20, activation=tf.nn.relu)
+critic_params2 = tf.get_variable('critic_params2',[20, num_actions])
+critic_mul2 = tf.matmul(critic_mul1, critic_params2)
+critic_mul3 = tf.multiply(critic_mul2, act_inp)
+critic_out = tf.layers.dense(inputs=critic_mul3, units=1, activation=None)
 
 
 cur_vars = tf.trainable_variables()
@@ -40,7 +43,7 @@ policy_crit_grad = tf.placeholder('float', [None, num_actions], name='policy_cri
 policy_grads = tf.gradients(policy_out, policy_vars)
 grads = tf.gradients(policy_out,policy_vars,-policy_crit_grad)
 
-policy_opt_ = tf.train.AdamOptimizer(0.001)
+policy_opt_ = tf.train.RMSPropOptimizer(0.001)
 apply_grads = policy_opt_.apply_gradients(grads_and_vars=zip(grads,policy_vars))
 
 
