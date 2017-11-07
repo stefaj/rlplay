@@ -1,29 +1,30 @@
 import numpy as np
 import tensorflow as tf
 import gym
+from replay_memory import Memory
 
 env = gym.make('CartPole-v0')
 num_actions = 2
 num_obs = 4
 gamma = 0.9
+batch_size=128
 
-policy_qhat = tf.placeholder('float',[None, 1],name='policy_qhat')
+memory = Memory(100000)
+
 state_inp = tf.placeholder('float', [None, num_obs],name='state_inp')
 policy_l1 = tf.layers.dense(inputs=state_inp, units=50, activation=tf.nn.relu)
 policy_out = tf.layers.dense(inputs=policy_l1, units=num_actions, activation=tf.nn.softmax)
 
-act_inp = tf.placeholder('float',shape=[None, num_actions])
+act_inp = tf.placeholder('float',shape=[None, num_actions], name='act_inp')
 sel_act_probs = tf.log( tf.add(tf.multiply(act_inp, policy_out),1e-6) )
 
 policy_vars = tf.trainable_variables()
 policy_var_len = len(policy_vars)
 
-cstate_inp = tf.placeholder('float', [None, num_obs],name='cstate_inp')
-critic_actions = tf.placeholder('float', [None, num_actions])
-critic_targ = tf.placeholder('float', [None, 1])
-critic_paramact = tf.layers.dense(inputs=critic_actions, units=num_obs, activation=tf.nn.relu)
-linear = tf.layers.dense(inputs=critic_paramact*cstate_inp, units=100, activation=tf.nn.relu)
-critic_l1 = tf.layers.dense(inputs=linear, units=50, activation=tf.nn.relu)
+critic_targ = tf.placeholder('float', [None, 1], name='critic_qtarget')
+critic_paramact = tf.layers.dense(inputs=act_inp, units=num_obs, activation=tf.nn.relu)
+critic_mul = tf.layers.dense(inputs=critic_paramact*state_inp, units=100, activation=tf.nn.relu)
+critic_l1 = tf.layers.dense(inputs=critic_mul, units=50, activation=tf.nn.relu)
 critic_out = tf.layers.dense(inputs=critic_l1, units=1, activation=None)
 
 
@@ -31,28 +32,22 @@ cur_vars = tf.trainable_variables()
 critic_vars = cur_vars[policy_var_len:]
 critic_var_len = len(critic_vars)
 
-critic_grads = tf.gradients(critic_l1, critic_actions)
-# print(critic_grads)
-# raise 'poes'
+critic_grads = tf.gradients(critic_out, act_inp)
 critic_loss = tf.nn.l2_loss(critic_targ - critic_out)
-critic_opt = tf.train.AdamOptimizer(0.0010).minimize(critic_loss)
+critic_opt = tf.train.AdamOptimizer(0.001).minimize(critic_loss)
 
-policy_crit_grad = tf.placeholder('float', [None, num_actions]) 
-policy_loss = -tf.reduce_mean( tf.multiply(policy_qhat, sel_act_probs ) )
-policy_grads = tf.gradients(policy_loss, policy_vars)
-grads = tf.gradients(policy_out,policy_vars )
+policy_crit_grad = tf.placeholder('float', [None, num_actions], name='policy_crit_grad') 
+policy_grads = tf.gradients(policy_out, policy_vars)
+grads = tf.gradients(policy_out,policy_vars,-policy_crit_grad)
 
-policy_opt_ = tf.train.AdamOptimizer(0.01)
-apply_grads = policy_opt_.apply_gradients(grads_and_vars=zip(policy_grads,policy_vars))
+policy_opt_ = tf.train.AdamOptimizer(0.001)
+apply_grads = policy_opt_.apply_gradients(grads_and_vars=zip(grads,policy_vars))
 
 
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
-def action_policy(state):
-    probs = sess.run(policy_out, feed_dict={state_inp:[state]})
-    # return np.random.choice(num_actions, None, p=probs[0])
-    return 0 if np.random.uniform() < probs[0][0] else 1
+
 
 def rollout():
     obs = env.reset()
@@ -76,39 +71,51 @@ def discount_rewards(rewards):
     return rs
 
 def get_advantage(actions, states,rewards):
-    qs = sess.run(critic_out, feed_dict={cstate_inp:states, critic_actions:actions })
+    qs = sess.run(critic_out, feed_dict={state_inp:states, act_inp:actions })
     rs = []
     for (q,r) in zip(qs,rewards): 
         rs.append([r-q[0]])
     return rs
 
+def action_policy(state):
+    probs = sess.run(policy_out, feed_dict={state_inp:[state]})
+    # return np.random.choice(num_actions, None, p=probs[0])
+    a1 = 0 if np.random.uniform() < probs[0][0] else 1
+    a2 = 0 if np.random.uniform() < 0.5 else 1
+    return a2 if np.random.uniform() < 0.01 else a1
+    # return a1
+
 rr = 0.0
 for i in range(0,10000):
-    (tr, transitions) = rollout()
-    rr = 0.99*rr + 0.01*tr
 
-    (states, rewards, actions) = ([],[],[])
-    rs = []
-    for j in range(0,len(transitions)):
-        states.append(transitions[j][0])
+    obs = env.reset()
+    total_reward = 0
+    while True:
+        act = action_policy(obs)
+        old_obs = obs
+        obs,reward,done,info = env.step(act)
         act_vec = np.zeros(num_actions)
-        act_vec[transitions[j][1]] = 1
-        actions.append(act_vec)  
-        rs.append(transitions[j][2])
-
-    rewards = get_advantage( actions, states, rs )
+        act_vec[act] = 1
+        total_reward += reward
+        memory.append( (old_obs, act_vec, reward, obs, done) )  # sars'
+        if done:
+            break
+        # update 
+        (batch_states,batch_actions,batch_rewards, batch_new_states, batch_dones) \
+                = memory.sample_unpack(batch_size=32)
+        q_future = sess.run(critic_out, feed_dict={state_inp: batch_new_states, act_inp: batch_actions})
+        q_now = []
+        for j in range(0,len(batch_states)):
+            t = batch_rewards[j]
+            if not batch_dones[j]: t+= gamma*q_future[j][0]
+            q_now.append([t])
+        sess.run(critic_opt, feed_dict={state_inp:batch_states, act_inp:batch_actions, critic_targ:q_now})
+        pred_acts = sess.run(policy_out, feed_dict={state_inp: batch_states})
+        cgrads = sess.run(critic_grads, feed_dict={state_inp: batch_states, act_inp:pred_acts})
+        sess.run(apply_grads, feed_dict={state_inp: batch_states, policy_crit_grad: cgrads[0]})
     
-    # print('states',states)
-    # print('actions',actions)
-    # print('target',rewards)
-    targ = [ [r] for r in discount_rewards(rs) ]
-    sess.run(critic_opt, feed_dict={cstate_inp: states, critic_targ:targ, critic_actions:actions} )
-    cgrads = sess.run(critic_grads, feed_dict={cstate_inp:states, critic_actions:actions })
-
-    sess.run(apply_grads, feed_dict={state_inp: states, act_inp: actions, policy_qhat:rewards} )
-    pgrads = sess.run(grads, feed_dict={state_inp:states})
-
-    if i % 10 == 0: print("Iteration %d Rolloing Reward: %d" % (i,rr))
+    rr = 0.99*rr + 0.01*total_reward
+    print( "Episode %d Rolling Reward %d" % (i,rr) )
 
 raw_input("PresS the any KeY")
 
