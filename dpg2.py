@@ -8,36 +8,33 @@ num_obs = 4
 gamma = 0.9
 
 state_inp = tf.placeholder('float', [None, num_obs])
-actor_l1 = tf.layers.dense(inputs=state_inp, units=50, activation=tf.nn.relu)
-for _ in range(0,10):
-    actor_l1 = tf.layers.dense(inputs=actor_l1, units=50, activation=tf.nn.relu)
+act_inp = tf.placeholder('float',shape=[None, num_actions], name='act_inp')
+
+actor_l1 = tf.layers.dense(inputs=state_inp, units=10, activation=tf.nn.relu)
+actor_l1 = tf.layers.dense(inputs=actor_l1, units=10, activation=tf.nn.relu)
+
 actor_out = tf.layers.dense(inputs=actor_l1, units=num_actions, activation=tf.nn.softmax)
-# actor_qhat = tf.placeholder('float',[None, 1], name='actor_qhat')
 actor_weights = tf.trainable_variables()
 
-act_inp = tf.placeholder('float',shape=[None, num_actions], name='act_inp')
-sel_act_probs = tf.add(tf.multiply(act_inp, actor_out),1e-6)
+critic_state = tf.layers.dense(inputs=state_inp, units=20, activation=tf.nn.relu)
+critic_act = tf.layers.dense(inputs=act_inp, units=20, activation=tf.nn.relu)
+critic_l1 = tf.layers.dense(inputs=tf.concat([critic_state, critic_act],axis=1), units=20
+        , activation=tf.nn.relu)
 
-
-critic_l1 = tf.layers.dense(inputs=state_inp, units=50, activation=tf.nn.relu)
-critic_l2 = tf.layers.dense(inputs=tf.concat([critic_l1, act_inp],1), units=100, activation=tf.nn.relu)
-for _ in range(0,1):
-    critic_l2 = tf.layers.dense(inputs=critic_l2, units=50, activation=tf.nn.relu)
-critic_out = tf.layers.dense(inputs=critic_l2, units=1, activation=None)
+critic_out = tf.layers.dense(inputs=critic_l1, units=1, activation=None)
 critic_weights = tf.trainable_variables()[ len(actor_weights): ]
 
 critic_action_grads = tf.gradients(critic_out, act_inp)
 
-critic_rewards = tf.placeholder('float32')
-critic_targ = critic_rewards + gamma*critic_out
+critic_targ = tf.placeholder('float32', shape=[None, 1] )
 # critic_loss = tf.nn.l2_loss(critic_targ - critic_out)
 critic_loss = tf.reduce_mean(tf.squared_difference(critic_targ, critic_out))
 critic_opt = tf.train.AdamOptimizer(0.01).minimize(critic_loss)
 
-sampled_critic_gradients = tf.placeholder('float32',[None, num_actions])
-actor_params_grad = tf.gradients(ys=actor_out, xs=actor_weights, grad_ys=critic_action_grads)
+sampled_critic_gradients = tf.placeholder('float32',[None, num_actions], name='sampled_critic_grads')
+actor_params_grad = tf.gradients(ys=actor_out, xs=actor_weights, grad_ys=sampled_critic_gradients)
 actor_grads = zip(actor_params_grad,actor_weights)
-actor_opt_ = tf.train.AdamOptimizer(-0.01)
+actor_opt_ = tf.train.AdamOptimizer(-1e-4)
 apply_grads = actor_opt_.apply_gradients(grads_and_vars=actor_grads)
 
 
@@ -52,15 +49,13 @@ def action_policy(state):
 def rollout():
     obs = env.reset()
     transitions = []
-    total_reward = 0
     while True:
         a = action_policy(obs)
         new_obs, reward, done, info = env.step(a)
-        total_reward += reward
         transitions.append((obs,a,reward,new_obs,done)) # s a r s' d
         obs = new_obs
         if done: break
-    return (total_reward, transitions)
+    return transitions
 
 def discount_rewards(rewards):
     rs = np.zeros(len(rewards))
@@ -74,32 +69,44 @@ def get_critic_q(states, actions):
     qs = sess.run(critic_out, feed_dict={state_inp:states, act_inp: actions})
     return qs
 
+mem = []
+
 rr = 0.0
 for i in range(0,10000):
-    (tr, transitions) = rollout()
-    rr = 0.99*rr + 0.01*tr
+    transitions = rollout()
+    rr = 0.99*rr + 0.01*np.sum([ s[2] for s in transitions ])
+    mem = (mem + transitions)[-100000:]
 
-    (states, rewards, new_states, actions) = ([],[],[],[])
-    rewards = []
-    # print(targets.shape)
+    if len(mem) < 10000: continue
 
-    for j in range(0,len(transitions)):
-        states.append(transitions[j][0])
-        new_states.append(transitions[j][3])
-        act_vec = np.zeros(num_actions)
-        act_vec[transitions[j][1]] = 1
-        actions.append(act_vec)  
-        rewards.append(transitions[j][2])
+    for b in range(3):
+        indices = np.random.choice( len(mem), 128)
+        samples = [ mem[idx] for idx in indices ]
 
-    # print('states',states)
-    # print('actions',actions)
-    # print('target',rewards)
-    # print(len(rewards))
+        (states, rewards, new_states, actions, dones) = ([],[],[],[], [])
+        rewards = []
+        # print(targets.shape)
 
-    act_for_grads = sess.run(actor_out, feed_dict={state_inp:states})
-    sess.run(apply_grads, feed_dict={state_inp: states, act_inp:act_for_grads} )
+        for j in range(0,len(samples)):
+            states.append(samples[j][0])
+            new_states.append(samples[j][3])
+            act_vec = np.zeros(num_actions)
+            act_vec[samples[j][1]] = 1
+            actions.append(act_vec)  
+            rewards.append(samples[j][2])
+            dones.append(samples[j][4])
 
-    sess.run(critic_opt, feed_dict={state_inp: states, critic_rewards:rewards, act_inp: actions} )
+        next_act = sess.run(actor_out, feed_dict={state_inp: new_states})
+        q_next = sess.run(critic_out, feed_dict={state_inp: new_states, act_inp: next_act})
+        rewards = np.array(rewards).reshape( (-1,1) )
+        dones = np.array(dones).reshape( (-1,1) )
+        q_targ = rewards + gamma*(1-dones)*q_next
+
+        sess.run(critic_opt, feed_dict={state_inp: states, critic_targ: q_targ, act_inp: actions})
+
+        cur_act = sess.run(actor_out, feed_dict={state_inp: states})
+        act_for_grads = sess.run(critic_action_grads, feed_dict={state_inp:states, act_inp:cur_act})[0]
+        sess.run(apply_grads, feed_dict={state_inp: states, sampled_critic_gradients:act_for_grads} )
 
     if i % 10 == 0: print("Iteration %d Rolloing Reward: %d" % (i,rr))
 
