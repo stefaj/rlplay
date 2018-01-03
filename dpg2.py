@@ -11,7 +11,8 @@ state_inp = tf.placeholder('float', [None, num_obs])
 act_inp = tf.placeholder('float',shape=[None, num_actions], name='act_inp')
 
 actor_l1 = tf.layers.dense(inputs=state_inp, units=10, activation=tf.nn.relu)
-actor_l1 = tf.layers.dense(inputs=actor_l1, units=10, activation=tf.nn.relu)
+for _ in range(10):
+    actor_l1 = tf.layers.dense(inputs=actor_l1, units=10, activation=tf.nn.relu)
 
 actor_out = tf.layers.dense(inputs=actor_l1, units=num_actions, activation=tf.nn.softmax)
 actor_weights = tf.trainable_variables()
@@ -20,6 +21,8 @@ critic_state = tf.layers.dense(inputs=state_inp, units=20, activation=tf.nn.relu
 critic_act = tf.layers.dense(inputs=act_inp, units=20, activation=tf.nn.relu)
 critic_l1 = tf.layers.dense(inputs=tf.concat([critic_state, critic_act],axis=1), units=20
         , activation=tf.nn.relu)
+for _ in range(10):
+    critic_l1 = tf.layers.dense(inputs=critic_l1, units=20, activation=tf.nn.relu)
 
 critic_out = tf.layers.dense(inputs=critic_l1, units=1, activation=None)
 critic_weights = tf.trainable_variables()[ len(actor_weights): ]
@@ -44,7 +47,9 @@ sess.run(tf.global_variables_initializer())
 def action_policy(state):
     probs = sess.run(actor_out, feed_dict={state_inp:[state]})
     # return np.random.choice(num_actions, None, p=probs[0])
-    return 0 if np.random.uniform() < probs[0][0] else 1
+    if np.random.uniform() < 0.05:
+        return env.action_space.sample()
+    return np.random.choice(num_actions, p=probs[0])
 
 def rollout():
     obs = env.reset()
