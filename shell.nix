@@ -1,5 +1,5 @@
 with import <nixpkgs> {};
-with pkgs.python27Packages;
+with pkgs.python36Packages;
 
 let
    gym = buildPythonPackage rec {
@@ -14,39 +14,17 @@ let
 
      doCheck = false;
      buildInputs = [
-		    python27Full
+		    python36Full
                     cudatoolkit
                     cudnn
-                    python27Packages.requests
-                    python27Packages.pyglet
-                    python27Packages.six
-                    python27Packages.numpy
-                    python27Packages.scipy
+                    python36Packages.requests
+                    python36Packages.pyglet
+                    python36Packages.six
+                    python36Packages.numpy
+                    python36Packages.scipy
                    ];
    };
 
-   tensorflow = buildPythonPackage rec {
-     pname = "tensorflow";
-     version = "1.4.0";
-     name = "${pname}-${version}";
-
-     src = pkgs.fetchurl {
-       url = "https://pypi.python.org/packages/ec/47/b9621f12c2aaa892658382af9493e611a0f3ea5e3d7001709d2d31c65507/tensorflow_gpu-1.4.0rc0-cp27-cp27mu-manylinux1_x86_64.whl";
-       sha256 = "121qq4al4in5pmq4am8aa2g70476yp2kvk2bb0y29cdsj2kirycl";
-     };
-
-     doCheck = false;
-     buildInputs = [
-		    python27Full
-                    cudatoolkit
-                    cudnn
-                    python27Packages.requests
-                    python27Packages.pyglet
-                    python27Packages.six
-                    python27Packages.numpy
-                    python27Packages.scipy
-                   ];
-   };
 in
 
 buildPythonPackage{
@@ -55,17 +33,15 @@ buildPythonPackage{
                     ocl-icd
                     cudatoolkit
                     cudnn
-                    python27Full
-                    python27Packages.matplotlib
-                    python27Packages.requests
-                    python27Packages.pyglet
-                    python27Packages.futures
-                    python27Packages.tensorflowWithCuda
-                    python27Packages.setuptools
-                    # python27Packages.pandas0.17.1
-                    python27Packages.numpy
+                    python36Full
+                    python36Packages.matplotlib
+                    python36Packages.requests
+                    python36Packages.pyglet
+                    python36Packages.tensorflowWithCuda
+                    python36Packages.setuptools
+                    python36Packages.numpy
                     gym
-                    # python27Packages.Quandl
+                    # python36Packages.Quandl
                    ]; 
   shellHook = ''
   # set SOURCE_DATE_EPOCH so that we can use python wheels
