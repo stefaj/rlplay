@@ -17,12 +17,6 @@ kappa = 1
 N = 50
 batch_size=32
 
-def quantile_loss(a,b,tau):
-    print(b)
-    u = (a-b)
-    delta = tf.cast(u < 0, 'float32')
-    return tf.abs(tau - delta) * tf.losses.huber_loss(a,b)
-
 state_inp = tf.placeholder('float32', shape=(None, num_obs), name='state_inp')
 act_inp= tf.placeholder('int32', name='act_inp', shape=(None,2) )
 quantile_midpoints_inp = tf.placeholder(tf.float32, [None, N], name="quantile_midpoints")
@@ -126,6 +120,9 @@ for epoch in range(0, 100000):
         cumulative_probabilities = np.array(range(N+1))/float(N)  # tau_i
         quantile_midpoints = 0.5*(cumulative_probabilities[1:] + cumulative_probabilities[:-1])  # tau^hat_i
         quantile_midpoints = np.tile(quantile_midpoints, (batch_size, 1))
+        print( np.argmax(as_))
+        print( np.argmax(as_).shape)
+        raise 'poes'
         sorted_quantiles = np.argsort(calc_cur_thetas[batch_idx, np.argmax(as_)])
         for idx in range(batch_size):
             quantile_midpoints[idx, :] = quantile_midpoints[idx, sorted_quantiles[idx]]

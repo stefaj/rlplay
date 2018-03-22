@@ -37,9 +37,10 @@ buildPythonPackage{
                     python36Packages.matplotlib
                     python36Packages.requests
                     python36Packages.pyglet
-                    python36Packages.tensorflowWithCuda
+                    # python36Packages.tensorflowWithCuda
                     python36Packages.setuptools
                     python36Packages.numpy
+                    # python36Packages.pytorch
                     gym
                     # python36Packages.Quandl
                    ]; 
