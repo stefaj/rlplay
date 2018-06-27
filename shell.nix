@@ -25,6 +25,7 @@ let
                    ];
    };
 
+<<<<<<< HEAD
    tensorflow = buildPythonPackage rec {
      pname = "tensorflow";
      version = "1.4.0";
@@ -69,6 +70,8 @@ let
 
    };
 
+=======
+>>>>>>> 17c2e37a4c170bbfb68552039049b278dc0bcd60
 in
 
 buildPythonPackage{
@@ -81,12 +84,20 @@ buildPythonPackage{
                     python36Packages.matplotlib
                     python36Packages.requests
                     python36Packages.pyglet
+<<<<<<< HEAD
                     python36Packages.tensorflowWithCuda
                     python36Packages.setuptools
                     # python36Packages.pandas0.17.1
                     python36Packages.numpy
                     gym
                     l4optim
+=======
+                    # python36Packages.tensorflowWithCuda
+                    python36Packages.setuptools
+                    python36Packages.numpy
+                    # python36Packages.pytorch
+                    gym
+>>>>>>> 17c2e37a4c170bbfb68552039049b278dc0bcd60
                     # python36Packages.Quandl
                    ]; 
   shellHook = ''
