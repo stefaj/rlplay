@@ -2,6 +2,7 @@ import gym
 import tensorflow as tf
 import numpy as np
 from collections import deque
+import L4
 
 env = gym.make('CartPole-v0')
 n_features = 4
@@ -25,7 +26,8 @@ l2 = tf.layers.dense(inputs=l1, units=20, activation=tf.nn.relu
 probs = tf.layers.dense(inputs=l2, units=n_actions, activation=tf.nn.softmax)
 
 loss = -tf.reduce_sum (tf.multiply( tf.log(probs), actions_) ) * advantage
-optim = tf.train.AdamOptimizer(lr).minimize(loss)
+# optim = tf.train.AdamOptimizer(lr).minimize(loss)
+optim = L4.L4Adam(fraction=0.20).minimize(loss)
 
 critic_ret = tf.placeholder('float', [None, 1])
 critic_l1 = tf.layers.dense(inputs=state_, units=20, activation=tf.nn.relu,
@@ -72,7 +74,7 @@ def run_episode(env, sess):
 def train(sess):
     returns = deque(maxlen=100)
     rr = 0
-    for i in range(1,10000):
+    for i in range(1,500):
         (states, actions, transitions,total) = run_episode(env, sess)
         returns.append(total)
         if rr == 0: rr = total

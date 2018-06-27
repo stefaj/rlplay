@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import gym
 from replay_memory import Memory
+import L4
 
 epsilon = 0.1
 gamma = 0.9
@@ -18,7 +19,9 @@ out = tf.layers.dense(inputs=layer4, units=2, activation=None)
 targ_inp = tf.placeholder('float', [None,1])
 act = tf.placeholder('float', [None,2])
 loss = tf.nn.l2_loss(targ_inp - tf.multiply(out,act) )
-optim = tf.train.AdamOptimizer(0.001).minimize(loss)
+
+# optim = tf.train.AdamOptimizer(0.001).minimize(loss)
+optim = L4.L4Adam(fraction=0.01).minimize(loss)
 
 actions = [0,1]
 
@@ -28,7 +31,7 @@ sess.run(tf.global_variables_initializer())
 memory = Memory(100000)
 
 rr = 0
-for i in range(0,2000):
+for i in range(0,1000):
     obs = env.reset()
     total = 0
     alpha = 0.5*(0.1 + (1.0/((i/100.0)+1.0)))
@@ -71,7 +74,7 @@ for i in range(0,2000):
     rr = 0.99*rr + 0.01*total
     print("iteration %d avg rew %d epsilon %f" % (i,rr,epsilon))
 
-raw_input("Press any key to play")
+input("Press any key to play")
 obs = env.reset()
 while True:
     env.render()

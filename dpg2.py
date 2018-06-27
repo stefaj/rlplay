@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import gym
+import L4
 
 env = gym.make('CartPole-v0')
 num_actions = 2
@@ -56,7 +57,7 @@ def rollout():
 def discount_rewards(rewards):
     rs = np.zeros(len(rewards))
     g = 0
-    for i in reversed(xrange(0,len(rewards))):
+    for i in reversed(range(0,len(rewards))):
         g = g*gamma + rewards[i]
         rs[i] = g
     return rs
@@ -69,7 +70,7 @@ def get_advantage(states,rewards):
     return rs
 
 rr = 0.0
-for i in range(0,10000):
+for i in range(0,1000):
     (tr, transitions) = rollout()
     rr = 0.99*rr + 0.01*tr
 

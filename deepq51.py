@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import gym
 from replay_memory import Memory
+import L4
 
 epsilon = 0.1
 gamma = 0.9
@@ -24,7 +25,8 @@ for i in range(0,num_actions):
 m_inp = tf.placeholder('float', [num_actions,None,num_atoms])
 loss = -tf.reduce_sum( m_inp * tf.log(tf.add(dists,1e-6)) )
 
-optim = tf.train.AdamOptimizer(0.0001).minimize(loss)
+# optim = tf.train.AdamOptimizer(0.0001).minimize(loss)
+optim = L4.L4Adam(fraction=0.01).minimize(loss)
 
 v_min = 0.0
 v_max = 100.0

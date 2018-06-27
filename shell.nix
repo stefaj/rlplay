@@ -1,5 +1,5 @@
 with import <nixpkgs> {};
-with pkgs.python27Packages;
+with pkgs.python36Packages;
 
 let
    gym = buildPythonPackage rec {
@@ -14,14 +14,14 @@ let
 
      doCheck = false;
      buildInputs = [
-		    python27Full
+		    python36Full
                     cudatoolkit
                     cudnn
-                    python27Packages.requests
-                    python27Packages.pyglet
-                    python27Packages.six
-                    python27Packages.numpy
-                    python27Packages.scipy
+                    python36Packages.requests
+                    python36Packages.pyglet
+                    python36Packages.six
+                    python36Packages.numpy
+                    python36Packages.scipy
                    ];
    };
 
@@ -37,16 +37,38 @@ let
 
      doCheck = false;
      buildInputs = [
-		    python27Full
+		    python36Full
                     cudatoolkit
                     cudnn
-                    python27Packages.requests
-                    python27Packages.pyglet
-                    python27Packages.six
-                    python27Packages.numpy
-                    python27Packages.scipy
+                    python36Packages.requests
+                    python36Packages.pyglet
+                    python36Packages.six
+                    python36Packages.numpy
+                    python36Packages.scipy
                    ];
    };
+
+   l4optim = buildPythonPackage rec {
+     pname = "l4optimizer";
+     version = "1.0.0";
+     name = "${pname}-${version}";
+
+    src = (import <nixpkgs> {}).fetchFromGitHub {
+      owner = "martius-lab/";
+      repo = "l4-optimizer/";
+      rev = "f3738535bdaf06b768306054b5dd6e6a654acdbc";
+      sha256 = "1ycmhfbgr4gbh9hald0z9lyva7ryj3nj9z6g79ddqld0k1hhk3r9";
+    };
+
+    buildInputs = [ python36Packages.attrs python36Packages.six python36Packages.pytest
+                    python36Packages.testtools python36Packages.joblib python36Packages.tqdm
+                    python36Packages.scipy python36Packages.dill gym 
+                    ];
+
+    doCheck = false;
+
+   };
+
 in
 
 buildPythonPackage{
@@ -55,17 +77,17 @@ buildPythonPackage{
                     ocl-icd
                     cudatoolkit
                     cudnn
-                    python27Full
-                    python27Packages.matplotlib
-                    python27Packages.requests
-                    python27Packages.pyglet
-                    python27Packages.futures
-                    python27Packages.tensorflowWithCuda
-                    python27Packages.setuptools
-                    # python27Packages.pandas0.17.1
-                    python27Packages.numpy
+                    python36Full
+                    python36Packages.matplotlib
+                    python36Packages.requests
+                    python36Packages.pyglet
+                    python36Packages.tensorflowWithCuda
+                    python36Packages.setuptools
+                    # python36Packages.pandas0.17.1
+                    python36Packages.numpy
                     gym
-                    # python27Packages.Quandl
+                    l4optim
+                    # python36Packages.Quandl
                    ]; 
   shellHook = ''
   # set SOURCE_DATE_EPOCH so that we can use python wheels
